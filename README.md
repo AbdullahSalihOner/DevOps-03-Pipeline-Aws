@@ -224,3 +224,204 @@ Copy this password to unlock Jenkins and continue with the setup in the browser.
 ---
 
 
+### Step 8: Create EC2 Instance for Jenkins Agent
+
+To set up a Jenkins Agent node, create a new EC2 instance on AWS.
+
+1. **Launch EC2 Instance**: Create an EC2 instance to serve as the Jenkins Agent.
+
+   - **Instance Name**: `Jenkins-Agent`
+   - **Instance Type**: Select an appropriate instance type based on workload requirements.
+   - **AMI**: Choose an Amazon Machine Image (AMI), such as Ubuntu or Amazon Linux.
+   - **Storage**: `gp3`, recommended minimum size.
+   - **Security Group**: Ensure the security group has necessary ports open (e.g., port 22 for SSH).
+   - **Key Pair**: Use an existing key pair or create a new one for access.
+
+2. **Connect to Instance**: Use MobaXterm to connect to the `Jenkins-Agent` instance.
+
+   - Open MobaXterm and initiate a new SSH session.
+   - Use the **key pair** associated with the EC2 instance for secure access.
+   - Set session name as `Jenkins Agent` in MobaXterm for easy identification.
+
+The Jenkins Agent instance is now set up and connected. Proceed with necessary configurations and installations for it to act as a Jenkins node.
+
+---
+
+
+### Step 9: Configure Jenkins Agent Instance
+
+1. **Update and Upgrade Packages**: After connecting to the `My-Jenkins-Agent` instance, update and upgrade system packages.
+    ```bash
+    sudo apt update
+    sudo apt upgrade -y
+    clear
+    ```
+
+2. **Set Hostname**:
+   - Open the hostname configuration file:
+       ```bash
+       sudo nano /etc/hostname
+       ```
+   - Change the hostname to:
+       ```
+       My-Jenkins-Agent
+       ```
+   - Save and exit:
+      - Press `Ctrl + X` to exit.
+      - Press `Y` to confirm.
+      - Press `Enter` to finalize.
+
+   Alternatively, set the hostname directly using the following command:
+    ```bash
+    hostnamectl set-hostname My-Jenkins-Agent
+    ```
+
+3. **Restart the Instance**: Restart the instance to apply the new hostname.
+    ```bash
+    sudo init 6
+    # or
+    sudo reboot
+    ```
+
+After restarting, reconnect to the instance. The hostname should now be updated to `My-Jenkins-Agent`.
+
+---
+
+
+### Step 10: Install Java and Docker on Jenkins Agent
+
+To prepare the Jenkins Agent, install Java and Docker on the instance.
+
+1. **Install Java**: Jenkins requires Java to run, so install OpenJDK.
+    ```bash
+    sudo apt install openjdk-21-jre -y
+    ```
+
+2. **Verify Java Installation**:
+    ```bash
+    java --version
+    ```
+   This command should display the installed Java version, confirming that Java is properly installed.
+
+3. **Install Docker**: Install Docker to allow Jenkins to manage containers on the agent.
+    ```bash
+    sudo apt install docker.io -y
+    ```
+   Alternatively:
+    ```bash
+    sudo apt-get install docker.io -y
+    ```
+
+4. **Add User to Docker Group**: Add the current user to the Docker group to enable Docker command usage without `sudo`.
+    ```bash
+    sudo usermod -aG docker $USER
+    ```
+
+5. **Restart the Instance**: Restart the instance to apply the changes.
+    ```bash
+    sudo reboot
+    ```
+
+After the restart, the Jenkins Agent is now configured with both Java and Docker.
+
+---
+
+### Step 11: Configure SSH for Jenkins Agent
+
+To ensure secure and proper SSH key-based authentication for the Jenkins Agent, modify the SSH configuration file.
+
+1. **Edit SSH Configuration File**:
+    ```bash
+    sudo nano /etc/ssh/sshd_config
+    ```
+
+2. **Uncomment and Set the Following Parameters**:
+   - Find and uncomment (remove `#` at the beginning) the following lines:
+       ```
+       PubkeyAuthentication yes
+       AuthorizedKeysFile      .ssh/authorized_keys .ssh/authorized_keys2
+       ```
+
+3. **Save and Exit**:
+   - Press `Ctrl + X` to exit the editor.
+   - Press `Y` to confirm saving changes.
+   - Press `Enter` to finalize and close the editor.
+
+4. **Reload SSH Service**: Apply the changes to the SSH configuration.
+    ```bash
+    sudo service ssh reload
+    ```
+
+The SSH configuration is now updated for key-based authentication on the Jenkins Agent.
+
+---
+
+
+### Step 12: Configure SSH for Jenkins Master
+
+To enable secure SSH key-based authentication on the Jenkins Master instance, modify its SSH configuration file.
+
+1. **Edit SSH Configuration File**:
+    ```bash
+    sudo nano /etc/ssh/sshd_config
+    ```
+
+2. **Uncomment and Set the Following Parameters**:
+   - Locate and uncomment (remove `#` at the beginning) the following lines:
+       ```
+       PubkeyAuthentication yes
+       AuthorizedKeysFile      .ssh/authorized_keys .ssh/authorized_keys2
+       ```
+
+3. **Save and Exit**:
+   - Press `Ctrl + X` to exit the editor.
+   - Press `Y` to confirm saving changes.
+   - Press `Enter` to finalize and close the editor.
+
+4. **Reload SSH Service**: Apply the changes to the SSH configuration.
+    ```bash
+    sudo service ssh reload
+    ```
+
+The SSH configuration is now updated to support key-based authentication on the Jenkins Master.
+
+---
+
+
+### Step 13: Set Up SSH Key Authentication Between Jenkins Master and Agent
+
+To enable secure SSH communication between the Jenkins Master and Jenkins Agent, generate an SSH key on the Master and configure it on the Agent.
+
+1. **Generate SSH Key on Jenkins Master**:
+   - On the Jenkins Master, generate an SSH key pair:
+       ```bash
+       ssh-keygen
+       ```
+     Or, specify the key type:
+       ```bash
+       ssh-keygen -t ed25519
+       ```
+
+2. **Copy the Public Key**:
+   - Open the public key file `id_ed25519.pub` on the Jenkins Master.
+   - Copy the entire contents of this file.
+
+3. **Add Public Key to Jenkins Agent**:
+   - On the Jenkins Agent, open the `authorized_keys` file:
+       ```bash
+       nano ~/.ssh/authorized_keys
+       ```
+   - Paste the copied public key from the Master into this file.
+   - Save and exit:
+      - Press `Ctrl + X`, then `Y` to confirm, and `Enter` to finalize.
+
+4. **Restart Both Instances**: To apply SSH changes, restart both the Jenkins Master and Agent instances.
+    ```bash
+    sudo reboot
+    ```
+
+After restarting, the SSH key authentication setup between Jenkins Master and Agent is complete.
+
+---
+
+
