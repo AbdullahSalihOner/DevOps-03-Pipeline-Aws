@@ -424,4 +424,166 @@ After restarting, the SSH key authentication setup between Jenkins Master and Ag
 
 ---
 
+### Step 14: Retrieve Jenkins Initial Admin Password and Add Agent Node
 
+1. **Retrieve Jenkins Initial Admin Password**:
+   - On the Jenkins Master, retrieve the initial admin password to unlock Jenkins.
+       ```bash
+       sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+       ```
+   - Copy the password and paste it into the Jenkins setup screen in your web browser.
+
+2. **Add Jenkins Agent as a Node**:
+   - Go to the Jenkins Dashboard in your browser.
+   - Navigate to **Manage Jenkins** > **Manage Nodes and Clouds** > **New Node**.
+   - Enter a name for the Agent node (e.g., `Jenkins-Agent`), select the **Permanent Agent** option, and configure the required settings:
+      - **Remote root directory**: Set the directory on the Agent where Jenkins will run jobs.
+      - **Labels**: Add any relevant labels for the node, such as "agent" or "docker".
+      - **Launch method**: Use "Launch agents via SSH" and provide the Agent's IP address, credentials, and SSH details.
+
+3. **Save and Connect**: Save the configuration. Jenkins Master will connect to the Agent node using SSH and add it as a build agent.
+
+The Jenkins Agent node is now connected and ready to use for job executions.
+
+---
+
+### Step 15: Add Jenkins Agent as a Node Using SSH
+
+To connect the Jenkins Agent to the Jenkins Master, configure it as a node via SSH.
+
+1. **Add Jenkins Agent Node in Jenkins Dashboard**:
+   - In the Jenkins Dashboard, go to **Manage Jenkins** > **Manage Nodes and Clouds** > **New Node**.
+   - Enter a name for the Agent node (e.g., `Jenkins-Agent`), select the **Permanent Agent** option, and configure the following settings:
+      - **Remote root directory**: Set the directory on the Agent where Jenkins will run jobs (e.g., `/home/ubuntu`).
+      - **Labels**: Add any relevant labels, such as "agent" or "docker", to categorize the node.
+      - **Launch method**: Select **Launch agents via SSH**.
+
+2. **Configure SSH Details**:
+   - **Host**: Enter the IP address of the Agent instance.
+   - **Credentials**: Choose or add SSH credentials (key-based) that correspond to the SSH setup between Master and Agent.
+   - **Host Key Verification Strategy**: Set to "Non-verifying Verification Strategy" if you prefer to bypass strict verification.
+
+3. **Save and Connect**:
+   - After configuring, click **Save**. Jenkins Master will establish an SSH connection with the Agent and add it as a build node.
+
+The Jenkins Agent node is now successfully connected via SSH and ready for job executions.
+
+---
+
+### Step 16: Set Up a Pipeline on Jenkins
+
+With the Jenkins Master and Agent set up, the next step is to create a Jenkins pipeline.
+
+1. **Create a New Pipeline Project**:
+   - In the Jenkins Dashboard, navigate to **New Item**.
+   - Enter a name for the pipeline project (e.g., `MyPipeline`).
+   - Select **Pipeline** and click **OK** to create the new project.
+
+2. **Configure Pipeline**:
+   - Go to the **Pipeline** section of the project configuration page.
+   - Choose the source of your pipeline script:
+      - **Pipeline script**: Write the pipeline script directly in Jenkins.
+      - **Pipeline script from SCM**: If the pipeline script (e.g., `Jenkinsfile`) is stored in a version control system like Git, choose this option and configure the repository details.
+   - Define the stages of your pipeline in the script, such as build, test, and deploy stages.
+
+3. **Save the Configuration**: Once your pipeline script is set up, click **Save** to finalize the configuration.
+
+4. **Run the Pipeline**:
+   - Go to the project page and click **Build Now** to start the pipeline.
+   - Monitor the console output and pipeline stages to ensure each step executes correctly.
+
+The initial Jenkins pipeline is now set up and ready for further configuration and stages as needed.
+
+---
+
+### Step 17: Create and Add GitHub Token to Jenkins
+
+1. **Create a GitHub Token**:
+   - Open a browser and go to the GitHub token generation page: [https://github.com/settings/tokens](https://github.com/settings/tokens).
+   - Click **Generate new token** and provide a descriptive name for the token, such as `MyGitHubTokenForAWS`.
+   - Select the necessary scopes, such as `repo` (for accessing repositories) and `workflow` (if working with GitHub Actions).
+   - Click **Generate token** and copy the generated token (e.g., `ghp_12345678901234567890`).
+
+2. **Add GitHub Token to Jenkins**:
+   - In Jenkins, navigate to **Dashboard** > **Manage Jenkins** > **Manage Credentials**.
+   - Select the appropriate credentials domain (usually **Global**).
+   - Click on **Add Credentials**.
+      - **Kind**: Select **Secret text**.
+      - **Secret**: Paste the GitHub token (`ghp_12345678901234567890`).
+      - **ID**: Optionally, give an ID to the token (e.g., `MyGitHubTokenForAWS`).
+      - **Description**: Enter a description for easy reference.
+   - Click **OK** to save the credential.
+
+3. **Using the GitHub Token in Pipelines**:
+   - Now, you can reference this token in Jenkins pipeline scripts or configurations when accessing GitHub repositories.
+
+The GitHub token is now securely stored in Jenkins and ready for use in pipeline projects.
+
+---
+
+
+### Step 18: Jenkins Pipeline Script (Jenkinsfile)
+
+Below is the Jenkinsfile script for automating the CI/CD process. This pipeline includes stages for workspace cleanup, source code checkout, Maven build, testing, and optional stages for Docker and Kubernetes deployment.
+
+```groovy
+pipeline {
+    agent any
+    tools {
+        jdk 'JDK21'
+        maven 'Maven3'
+    }
+    stages {
+        stage('Cleanup Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+        stage('Checkout from SCM') {
+            steps {
+                git branch: 'master', credentialsId: 'github', url: 'https://github.com/mimaraslan/devops-003-pipeline-aws'
+            }
+        }
+        stage('Build Maven') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+        stage('Test Application') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+        /*
+        stage('Docker Image') {
+            steps {
+                bat 'docker build  -t mimaraslan/my-application:latest  .'
+            }
+        }
+
+        stage('Docker Image to DockerHub') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'dockerhub', variable: 'dockerhub')]) {
+                        bat 'echo docker login -u mimaraslan -p ${dockerhub}'
+                        bat 'docker image push  mimaraslan/my-application:latest'
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                kubernetesDeploy(configs: 'deployment-service.yml', kubeconfigId: 'kubernetes')
+            }
+        }
+
+        stage('Docker Image to Clean') {
+            steps {
+                bat 'docker image prune -f'
+            }
+        }
+        */
+    }
+}
+```
