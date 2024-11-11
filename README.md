@@ -587,3 +587,462 @@ pipeline {
     }
 }
 ```
+
+### Step 19: Set Up SonarQube Server on EC2
+
+To enable code quality analysis, create an EC2 instance specifically for running SonarQube.
+
+1. **Launch EC2 Instance**:
+   - **Instance Name**: `My-SonarQube`
+   - **AMI**: Ubuntu
+   - **Instance Type**: `t3.xlarge` (provides a balanced CPU, memory, and network performance suitable for SonarQube)
+   - **Storage**: Allocate at least 15 GB to accommodate SonarQube requirements.
+   - **Security Group**: Configure security group settings to allow access on necessary ports, such as port 9000 for SonarQube’s web interface.
+   - **Key Pair**: Select or create a key pair to access the instance.
+
+2. **Connect to SonarQube Instance**: Use an SSH client (e.g., MobaXterm) to connect to the `My-SonarQube` instance.
+
+Next, proceed with installing and configuring SonarQube on the instance to analyze code quality in your Jenkins pipelines.
+
+---
+
+### Step 20: Assign Elastic IPs to Instances
+
+To provide stable IP addresses for easier access, Elastic IPs are assigned to each EC2 instance.
+
+1. **Create Elastic IPs**:
+   - In the AWS Management Console, navigate to **EC2 Dashboard** > **Network & Security** > **Elastic IPs**.
+   - Allocate new Elastic IP addresses for each instance that requires a static IP (e.g., Jenkins Master, Jenkins Agent, My-SonarQube).
+
+2. **Associate Elastic IPs with Instances**:
+   - For each Elastic IP, select **Actions** > **Associate Elastic IP address**.
+   - Choose the instance you want to associate the IP with (e.g., `My-Jenkins-Master`, `My-Jenkins-Agent`, or `My-SonarQube`).
+   - Confirm and apply the association.
+
+3. **Update MobaXterm**:
+   - Open MobaXterm and update the session configurations for each instance.
+   - Replace the previous public IPs with the new Elastic IPs assigned to each instance.
+   - Save the configurations to maintain stable access to each server.
+
+The instances now have static IP addresses, making it easier to manage and connect without changing IP addresses.
+
+---
+
+### Step 21: Configure My-SonarQube Instance
+
+1. **Update and Upgrade Packages**: After connecting to the `My-SonarQube` instance, update and upgrade system packages.
+    ```bash
+    sudo apt update
+    sudo apt upgrade -y
+    clear
+    ```
+
+2. **Set Hostname**:
+   - Open the hostname configuration file:
+       ```bash
+       sudo nano /etc/hostname
+       ```
+   - Change the hostname to:
+       ```
+       My-SonarQube
+       ```
+   - Save and exit:
+      - Press `Ctrl + X` to exit.
+      - Press `Y` to confirm.
+      - Press `Enter` to finalize.
+
+   Alternatively, set the hostname directly using the following command:
+    ```bash
+    hostnamectl set-hostname My-SonarQube
+    ```
+
+3. **Restart the Instance**: Restart the instance to apply the new hostname.
+    ```bash
+    sudo init 6
+    # or
+    sudo reboot
+    ```
+
+After restarting, reconnect to the instance. The hostname should now be updated to `My-SonarQube`.
+
+---
+
+
+### Step 22: Install and Configure PostgreSQL for SonarQube
+
+To set up a database for SonarQube, install PostgreSQL on the `My-SonarQube` instance and create a database and user.
+
+1. **Add PostgreSQL Repository**:
+   - Add the PostgreSQL repository to the sources list:
+       ```bash
+       sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+       ```
+   - Add the PostgreSQL signing key:
+       ```bash
+       wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /etc/apt/trusted.gpg.d/pgdg.asc &>/dev/null
+       ```
+
+2. **Install PostgreSQL**:
+   - Update the package list and install PostgreSQL.
+       ```bash
+       sudo apt update
+       sudo apt-get -y install postgresql postgresql-contrib
+       ```
+   - Enable PostgreSQL to start on boot:
+       ```bash
+       sudo systemctl enable postgresql
+       ```
+
+3. **Set PostgreSQL Password**:
+   - Set a password for the `postgres` user:
+       ```bash
+       sudo passwd postgres
+       ```
+   - Enter the password when prompted (e.g., `123456789`).
+
+4. **Configure SonarQube Database**:
+   - Switch to the `postgres` user:
+       ```bash
+       su - postgres
+       ```
+   - Create a new PostgreSQL user for SonarQube:
+       ```bash
+       createuser sonar
+       ```
+   - Access the PostgreSQL prompt:
+       ```bash
+       psql
+       ```
+   - Set a password for the `sonar` user:
+       ```sql
+       ALTER USER sonar WITH ENCRYPTED password 'sonar';
+       ```
+   - Create the `sonarqube` database owned by the `sonar` user:
+       ```sql
+       CREATE DATABASE sonarqube OWNER sonar;
+       ```
+   - Grant all privileges on the `sonarqube` database to the `sonar` user:
+       ```sql
+       GRANT ALL PRIVILEGES ON DATABASE sonarqube TO sonar;
+       ```
+   - Exit the PostgreSQL prompt:
+       ```sql
+       \q
+       ```
+   - Exit from the `postgres` user:
+       ```bash
+       exit
+       ```
+
+The PostgreSQL database and user for SonarQube are now configured.
+
+---
+
+
+### Step 23: Add Adoptium Repository
+
+To install a specific version of OpenJDK from the Adoptium repository, first add the repository to the `My-SonarQube` instance.
+
+1. **Switch to Root User**:
+    ```bash
+    sudo bash
+    ```
+
+2. **Add Adoptium Repository Key**:
+   - Download and add the GPG key for the Adoptium repository:
+       ```bash
+       wget -O - https://packages.adoptium.net/artifactory/api/gpg/key/public | tee /etc/apt/keyrings/adoptium.asc
+       ```
+
+3. **Add the Adoptium Repository**:
+   - Add the Adoptium repository to the sources list:
+       ```bash
+       echo "deb [signed-by=/etc/apt/keyrings/adoptium.asc] https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list
+       ```
+
+4. **Update Package List**:
+   - Update the package list to include the new repository:
+       ```bash
+       sudo apt update
+       ```
+
+The Adoptium repository is now added and ready for installing OpenJDK from Adoptium.
+
+---
+
+### Step 24: Install Java 17 from Adoptium on My-SonarQube
+
+Install Java 17 on the `My-SonarQube` instance to support SonarQube's runtime requirements.
+
+1. **Install Java 17**:
+   - You can install either the JRE or the full JDK version of OpenJDK 17:
+       ```bash
+       sudo apt install openjdk-17-jre -y
+       ```
+     Or, to install the Temurin JDK 17 package:
+       ```bash
+       sudo apt install temurin-17-jdk -y
+       ```
+
+2. **Configure Java Alternatives**:
+   - If multiple Java versions are installed, you can set Java 17 as the default:
+       ```bash
+       sudo update-alternatives --config java
+       ```
+
+3. **Verify Java Installation**:
+   - Check the Java version to confirm the installation:
+       ```bash
+       java --version
+       ```
+
+Java 17 is now installed and configured on the `My-SonarQube` instance.
+
+---
+
+
+### Step 25: Update Linux Kernel Limits for SonarQube
+
+To ensure that SonarQube runs smoothly with sufficient file and process limits, update the kernel limits configuration.
+
+1. **Open Limits Configuration File**:
+    ```bash
+    sudo vim /etc/security/limits.conf
+    ```
+
+2. **Edit Configuration**:
+    - Press `i` to enter insert mode.
+    - Add the following lines to set the necessary file and process limits:
+        ```
+        sonarqube   -   nofile   65536
+        sonarqube   -   nproc    4096
+        ```
+
+3. **Save and Exit**:
+    - Press `ESC` to exit insert mode.
+    - Type `:wq` and press `Enter` to save changes and close the file.
+
+The kernel limits are now updated to support SonarQube’s requirements.
+
+---
+
+### Step 26: Update `sysctl` Configuration for SonarQube
+
+To ensure that SonarQube has sufficient virtual memory mapping, update the `sysctl` configuration.
+
+1. **Open `sysctl.conf` File**:
+    ```bash
+    sudo vim /etc/sysctl.conf
+    ```
+
+2. **Edit Configuration**:
+    - Press `i` to enter insert mode.
+    - Add the following line to set the maximum virtual memory map count:
+        ```
+        vm.max_map_count = 262144
+        ```
+
+3. **Save and Exit**:
+    - Press `ESC` to exit insert mode.
+    - Type `:wq` and press `Enter` to save changes and close the file.
+
+4. **Restart the Instance**:
+    - To apply the new configuration, restart the instance:
+        ```bash
+        sudo init 6
+        ```
+      Or:
+        ```bash
+        sudo reboot
+        ```
+
+The system configuration is now updated, and the instance has been restarted to apply the new settings.
+
+---
+
+### Step 27: Open Port 9000 for SonarQube Access
+
+To allow external access to the SonarQube web interface, open port 9000 in the security group settings.
+
+1. **Open Security Groups in AWS Console**:
+    - Go to the AWS Management Console and navigate to **EC2 Dashboard** > **Network & Security** > **Security Groups**.
+
+2. **Select SonarQube Security Group**:
+    - Locate and select the security group associated with the `My-SonarQube` instance.
+
+3. **Edit Inbound Rules**:
+    - Click on **Edit inbound rules**.
+    - Add a new rule to allow access on port 9000.
+        - **Type**: Custom TCP
+        - **Port Range**: 9000
+        - **Source**: Anywhere (0.0.0.0/0) for IPv4 or configure as needed for your environment.
+
+4. **Save Rules**: Click **Save rules** to apply the changes.
+
+Port 9000 is now open, allowing access to the SonarQube web interface from the internet.
+
+---
+
+### Step 28: Install SonarQube and Configure Permissions
+
+Download and install SonarQube on the `My-SonarQube` instance, then configure a dedicated user to manage it.
+
+1. **Download SonarQube**:
+    - Download the SonarQube package from SonarSource:
+        ```bash
+        sudo wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-10.6.0.92116.zip
+        ```
+
+2. **Install Unzip Utility**:
+    - Install `unzip` if it is not already installed:
+        ```bash
+        sudo apt install unzip
+        ```
+
+3. **Extract SonarQube**:
+    - Unzip the SonarQube package to the `/opt` directory:
+        ```bash
+        sudo unzip sonarqube-10.6.0.92116.zip -d /opt
+        ```
+    - Move to `/opt` and rename the SonarQube directory for simplicity:
+        ```bash
+        sudo mv /opt/sonarqube-10.6.0.92116 /opt/sonarqube
+        ```
+
+4. **Create a SonarQube User and Group**:
+    - Create a new group named `sonar`:
+        ```bash
+        sudo groupadd sonar
+        ```
+    - Create a new user named `sonar` and assign it to the `sonar` group, setting its home directory to `/opt/sonarqube`:
+        ```bash
+        sudo useradd -c "user to run SonarQube" -d /opt/sonarqube -g sonar sonar
+        ```
+
+5. **Set Ownership**:
+    - Grant the `sonar` user and group ownership of the SonarQube directory:
+        ```bash
+        sudo chown sonar:sonar /opt/sonarqube -R
+        ```
+
+SonarQube is now downloaded, extracted, and ready for configuration, with permissions set for the `sonar` user to manage it.
+
+---
+
+### Step 29: Configure SonarQube to Connect to PostgreSQL Database
+
+To enable SonarQube to connect to the PostgreSQL database, update the database connection properties in the configuration file.
+
+1. **Open SonarQube Configuration File**:
+    ```bash
+    sudo vim /opt/sonarqube/conf/sonar.properties
+    ```
+
+2. **Edit Database Connection Settings**:
+    - Press `i` to enter insert mode.
+    - Update the following lines with the PostgreSQL connection details:
+        ```properties
+        sonar.jdbc.username=sonar
+        sonar.jdbc.password=sonar
+        sonar.jdbc.url=jdbc:postgresql://localhost:5432/sonarqube
+        ```
+
+3. **Save and Exit**:
+    - Press `ESC` to exit insert mode.
+    - Type `:wq` and press `Enter` to save changes and close the file.
+
+SonarQube is now configured to connect to the PostgreSQL database using the `sonar` user credentials.
+
+---
+
+### Step 30: Create SonarQube Service
+
+To manage SonarQube as a systemd service, create a service file and configure it to start SonarQube.
+
+1. **Create SonarQube Service File**:
+    ```bash
+    sudo vim /etc/systemd/system/sonar.service
+    ```
+
+2. **Add Service Configuration**:
+    - Press `i` to enter insert mode.
+    - Copy and paste the following configuration into the file:
+        ```ini
+        [Unit]
+        Description=SonarQube service
+        After=syslog.target network.target
+
+        [Service]
+        Type=forking
+
+        ExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start
+        ExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop
+
+        User=sonar
+        Group=sonar
+        Restart=always
+
+        LimitNOFILE=65536
+        LimitNPROC=4096
+
+        [Install]
+        WantedBy=multi-user.target
+        ```
+
+3. **Save and Exit**:
+    - Press `ESC` to exit insert mode.
+    - Type `:wq` and press `Enter` to save changes and close the file.
+
+The SonarQube service is now configured and ready to be started and managed through `systemd`.
+
+---
+
+### Step 31: Enable and Start SonarQube Service
+
+To ensure SonarQube starts automatically when the machine reboots, enable the SonarQube service.
+
+1. **Enable SonarQube Service on Startup**:
+    ```bash
+    sudo systemctl enable sonar
+    ```
+
+2. **Start SonarQube Service**:
+    ```bash
+    sudo systemctl start sonar
+    ```
+
+3. **Check SonarQube Service Status**:
+    - Verify that SonarQube is running:
+        ```bash
+        sudo systemctl status sonar
+        ```
+
+With these settings, SonarQube will start automatically whenever the system boots.
+
+---
+
+
+### Step 32: Monitor SonarQube Logs and Access Web Interface
+
+1. **Monitor SonarQube Logs**:
+    - Use the following command to track SonarQube logs in real-time and ensure the service is running smoothly:
+        ```bash
+        sudo tail -f /opt/sonarqube/logs/sonar.log
+        ```
+
+2. **Access SonarQube Web Interface**:
+    - Open a web browser and navigate to the SonarQube interface using the public IP of the `My-SonarQube` instance on port 9000:
+        ```
+        http://<My-SonarQube_Public_IP>:9000
+        ```
+    - Replace `<My-SonarQube_Public_IP>` with the actual public IP address of the instance.
+
+3. **Login Credentials**:
+    - Use the default SonarQube credentials to log in:
+        - **Username**: `admin`
+        - **Password**: `admin`
+
+After logging in, you can configure SonarQube settings, create projects, and perform code quality analysis.
+
+---
+
