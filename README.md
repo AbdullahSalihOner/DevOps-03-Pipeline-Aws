@@ -1059,14 +1059,14 @@ To allow Jenkins to connect with SonarQube for code analysis, create a token in 
 2. **Generate a New Token**:
     - Under **Tokens**, create a new token:
         - **Name**: `jenkins-sonarqube-token`
-    - After creation, you will receive a token string similar to `sqa_48cf61bc7addb34aa48ed8c04903efdbdbf98e58`.
+    - After creation, you will receive a token string similar to `sqa_1234`.
     - **Copy this token** and keep it secure; you will need it to configure Jenkins.
 
 3. **Add Token to Jenkins**:
     - In Jenkins, go to **Dashboard** > **Manage Jenkins** > **Manage Credentials**.
     - Choose the appropriate credentials domain (usually **Global**).
     - Add a new **Secret text** credential:
-        - **Secret**: Paste the generated SonarQube token (`sqa_48cf61bc7addb34aa48ed8c04903efdbdbf98e58`).
+        - **Secret**: Paste the generated SonarQube token (`sqa_1234`).
         - **ID**: Optionally, give an ID such as `sonarqube-token`.
         - **Description**: Enter a description for easy reference.
 
@@ -1083,7 +1083,7 @@ To integrate SonarQube with Jenkins, save the SonarQube token in Jenkins and ins
    - Choose the appropriate credentials domain (usually **Global**).
    - Click on **Add Credentials** and configure as follows:
       - **Kind**: Secret text
-      - **Secret**: Paste the SonarQube token (`sqa_48cf61bc7addb34aa48ed8c04903efdbdbf98e58`)
+      - **Secret**: Paste the SonarQube token (`sqa_1234`)
       - **ID**: Enter an identifier such as `sonarqube-token`
       - **Description**: (Optional) Enter a description like "SonarQube Token for Jenkins Integration"
 
@@ -1225,3 +1225,133 @@ With this webhook, SonarQube will automatically notify Jenkins of analysis resul
 
 ---
 
+### Step 37: Create DockerHub Token and Add to Jenkins
+
+To allow Jenkins to push Docker images to DockerHub securely, create a DockerHub token and save it as a credential in Jenkins.
+
+1. **Create DockerHub Token**:
+   - Log in to your DockerHub account and navigate to the **Account Settings** > **Security** > **Access Tokens**.
+   - Create a new access token with a descriptive name, such as `MyDockerHubToken2024`.
+   - Copy the generated token (e.g., `dckr_pat_1234`) and save it securely.
+
+2. **Test DockerHub Login (Optional)**:
+   - To confirm the token works, you can use the following command to log in to DockerHub:
+     ```bash
+     docker login -u asoner01 -p dckr_pat_1234
+     ```
+   - This command should authenticate successfully, confirming that the token is valid.
+
+3. **Add DockerHub Token to Jenkins**:
+   - In Jenkins, navigate to **Dashboard** > **Manage Jenkins** > **Manage Credentials**.
+   - Select the appropriate credentials domain (usually **Global**).
+   - Click on **Add Credentials** and fill in the following fields:
+      - **Kind**: Secret text
+      - **Secret**: Paste the DockerHub token (`dckr_pat_1234`).
+      - **ID**: Enter an identifier such as `dockerhub-token`.
+      - **Description**: (Optional) Enter a description like "DockerHub Token for Jenkins Push".
+   - Click **OK** to save the credential.
+
+With this token saved in Jenkins, the pipeline can securely authenticate with DockerHub to push images.
+
+---
+
+### Jenkins Pipeline Script (Jenkinsfile) with DockerHub and Trivy Integration
+
+This Jenkinsfile defines a comprehensive CI/CD pipeline with environment variables for DockerHub integration, Trivy security scanning, and stages for workspace cleanup, code checkout, Maven build, testing, SonarQube code analysis, Docker image creation, and artifact cleanup.
+
+```groovy
+pipeline {
+    agent {
+        label 'My-Jenkins-Agent'
+    }
+    environment {
+        APP_NAME = "DevOps-03-Pipeline-Aws"
+        RELEASE = "1.0"
+        DOCKER_USER = "asoner01"
+        DOCKER_LOGIN = "dockerhub"
+        IMAGE_NAME = "${DOCKER_USER}" + "/" + "${APP_NAME}"
+        IMAGE_TAG = "${RELEASE}.${BUILD_NUMBER}"
+    }
+    tools {
+        jdk 'JDK21'
+        maven 'Maven3'
+    }
+    stages {
+        stage('Cleanup Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+        stage('Checkout from SCM') {
+            steps {
+                git branch: 'master', credentialsId: 'github', url: 'https://github.com/AbdullahSalihOner/DevOps-03-Pipeline-Aws'
+            }
+        }
+        stage('Build Maven') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+        stage('Test Application') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+        stage("SonarQube Analysis") {
+            steps {
+                script {
+                    withSonarQubeEnv(credentialsId: 'jenkins-sonarqube-token') {
+                        sh "mvn sonar:sonar"
+                    }
+                }
+            }
+        }
+
+        /*
+        stage("Quality Gate") {
+            steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'jenkins-sonarqube-token'
+                }
+            }
+        }
+        */
+
+        stage('Build & Push Docker Image to DockerHub') {
+            steps {
+                script {
+                    docker.withRegistry('', DOCKER_LOGIN) {
+                        docker_image = docker.build "${IMAGE_NAME}"
+                        docker_image.push("${IMAGE_TAG}")
+                        docker_image.push("latest")
+                    }
+                }
+            }
+        }
+        stage("Trivy Scan") {
+            steps {
+                script {
+                    sh ('docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image asoner01/DevOps-03-Pipeline-Aws:latest --no-progress --scanners vuln --exit-code 0 --severity HIGH,CRITICAL --format table')
+                }
+            }
+        }
+        stage('Cleanup Artifacts') {
+            steps {
+                script {
+                    sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG}"
+                    sh "docker rmi ${IMAGE_NAME}:latest"
+                }
+            }
+        }
+
+        /*
+        stage('Deploy to Kubernetes') {
+            steps {
+                kubernetesDeploy(configs: 'deployment-service.yml', kubeconfigId: 'kubernetes')
+            }
+        }
+        */
+
+    }
+}
+```
