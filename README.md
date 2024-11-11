@@ -1205,3 +1205,23 @@ pipeline {
     }
 }
 ```
+### Step 36: Create SonarQube Webhook for Jenkins Integration
+
+To allow SonarQube to send notifications to Jenkins upon analysis completion, create a webhook in SonarQube.
+
+1. **Access SonarQube Webhooks**:
+   - In the SonarQube interface, go to **Administration** > **Configuration** > **Webhooks**.
+
+2. **Create a New Webhook**:
+   - Click on **Create**.
+   - **Name**: Enter a descriptive name for the webhook, such as `Jenkins-SonarQube-Webhook`.
+   - **URL**: Enter the URL pointing to the Jenkins server’s SonarQube webhook endpoint. Replace `172.31.0.209` with the private IP address of your Jenkins Master:
+     ```
+     http://172.31.0.209:8080/sonarqube-webhook
+     ```
+   - Click **Save** to create the webhook.
+
+With this webhook, SonarQube will automatically notify Jenkins of analysis results, enabling Jenkins to respond to SonarQube events.
+
+---
+
