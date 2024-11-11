@@ -1261,97 +1261,140 @@ This Jenkinsfile defines a comprehensive CI/CD pipeline with environment variabl
 
 ```groovy
 pipeline {
-    agent {
-        label 'My-Jenkins-Agent'
-    }
-    environment {
-        APP_NAME = "DevOps-03-Pipeline-Aws"
-        RELEASE = "1.0"
-        DOCKER_USER = "asoner01"
-        DOCKER_LOGIN = "dockerhub"
-        IMAGE_NAME = "${DOCKER_USER}" + "/" + "${APP_NAME}"
-        IMAGE_TAG = "${RELEASE}.${BUILD_NUMBER}"
-    }
-    tools {
-        jdk 'JDK21'
-        maven 'Maven3'
-    }
-    stages {
-        stage('Cleanup Workspace') {
-            steps {
-                cleanWs()
+   agent {
+      label 'My-Jenkins-Agent'
+   }
+   // agent any
+   environment {
+      APP_NAME = "devops-03-pipeline-aws"
+      RELEASE = "1.0"
+      DOCKER_USER = "asoner01"
+      DOCKER_LOGIN = "dockerhub"
+      IMAGE_NAME = "${DOCKER_USER}" + "/" + "${APP_NAME}"
+      IMAGE_TAG = "${RELEASE}.${BUILD_NUMBER}"
+   }
+   tools {
+      jdk 'JDK21'
+      maven 'Maven3'
+   }
+   stages {
+      stage('Cleanup Workspace') {
+         steps {
+            cleanWs()
+         }
+      }
+      stage('Checkout from SCM') {
+         steps {
+            //   checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/AbdullahSalihOner/DevOps-03-Pipeline-Aws']])
+            git branch: 'master', credentialsId: 'github', url: 'https://github.com/AbdullahSalihOner/DevOps-03-Pipeline-Aws'
+         }
+      }
+      stage('Build Maven') {
+         steps {
+            //  sh 'mvn clean install'
+            //  bat 'mvn clean install'
+            sh 'mvn clean package'
+            //  bat 'mvn clean package'
+         }
+      }
+      stage('Test Application') {
+         steps {
+            sh 'mvn test'
+            //  bat 'mvn test'
+         }
+      }
+      stage("SonarQube Analysis") {
+         steps {
+            script {
+               withSonarQubeEnv(credentialsId: 'jenkins-sonarqube-token') {
+                  sh "mvn sonar:sonar"
+               }
             }
-        }
-        stage('Checkout from SCM') {
-            steps {
-                git branch: 'master', credentialsId: 'github', url: 'https://github.com/AbdullahSalihOner/DevOps-03-Pipeline-Aws'
-            }
-        }
-        stage('Build Maven') {
-            steps {
-                sh 'mvn clean package'
-            }
-        }
-        stage('Test Application') {
-            steps {
-                sh 'mvn test'
-            }
-        }
-        stage("SonarQube Analysis") {
-            steps {
-                script {
-                    withSonarQubeEnv(credentialsId: 'jenkins-sonarqube-token') {
-                        sh "mvn sonar:sonar"
-                    }
-                }
-            }
-        }
+         }
+      }
 
-        /*
-        stage("Quality Gate") {
-            steps {
-                script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'jenkins-sonarqube-token'
-                }
-            }
-        }
-        */
+      /*
+            stage("Quality Gate"){
+                steps {
+                    script {
+                         waitForQualityGate abortPipeline: false, credentialsId: 'jenkins-sonarqube-token'
+                     }
+                 }
+             }
+     */
 
-        stage('Build & Push Docker Image to DockerHub') {
-            steps {
-                script {
-                    docker.withRegistry('', DOCKER_LOGIN) {
-                        docker_image = docker.build "${IMAGE_NAME}"
-                        docker_image.push("${IMAGE_TAG}")
-                        docker_image.push("latest")
-                    }
-                }
+      stage('Build & Push Docker Image to DockerHub') {
+         steps {
+            script {
+               docker.withRegistry('', DOCKER_LOGIN) {
+                  docker_image = docker.build "${IMAGE_NAME}"
+                  docker_image.push("${IMAGE_TAG}")
+                  docker_image.push("latest")
+               }
             }
-        }
-        stage("Trivy Scan") {
-            steps {
-                script {
-                    sh ('docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image asoner01/DevOps-03-Pipeline-Aws:latest --no-progress --scanners vuln --exit-code 0 --severity HIGH,CRITICAL --format table')
-                }
+         }
+      }
+      stage("Trivy Scan") {
+         steps {
+            script {
+               sh ('docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image asoner01/devops-03-pipeline-aws:latest --no-progress --scanners vuln  --exit-code 0 --severity HIGH,CRITICAL --format table')
             }
-        }
-        stage('Cleanup Artifacts') {
-            steps {
-                script {
-                    sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG}"
-                    sh "docker rmi ${IMAGE_NAME}:latest"
-                }
+         }
+      }
+      stage ('Cleanup Artifacts') {
+         steps {
+            script {
+               sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG}"
+               sh "docker rmi ${IMAGE_NAME}:latest"
             }
-        }
+         }
+      }
 
-        /*
-        stage('Deploy to Kubernetes') {
-            steps {
-                kubernetesDeploy(configs: 'deployment-service.yml', kubeconfigId: 'kubernetes')
-            }
-        }
-        */
+      /*
+      stage('Deploy to Kubernetes'){
+          steps{
+              kubernetesDeploy (configs: 'deployment-service.yml', kubeconfigId: 'kubernetes')
+          }
+      }
 
-    }
+
+     stage('Docker Image to Clean') {
+         steps {
+             //   sh 'docker rmi asoner01/my-application:latest'
+             //  bat 'docker rmi asoner01/my-application:latest'
+
+             // sh 'docker image prune -f'
+              bat 'docker image prune -f'
+         }
+     }
+*/
+   }
 }
 ```
+
+### Step 38: Clean Up Disk Space on Jenkins Agent
+
+As the Jenkins Agent machine runs more jobs, Docker images, containers, and volumes may accumulate, consuming disk space. Use the following commands to clean up and free space on the Agent machine.
+
+1. **Remove Docker Images**:
+   - To delete all images related to the `devops-003-pipeline-aws` project, use:
+     ```bash
+     docker rmi $(docker images --format '{{.Repository}}:{{.Tag}}' | grep 'devops-003-pipeline-aws')
+     ```
+
+2. **Remove All Docker Containers**:
+   - To remove all stopped containers, run:
+     ```bash
+     docker container rm -f $(docker container ls -aq)
+     ```
+
+3. **Prune Docker Volumes**:
+   - To remove all unused Docker volumes, use:
+     ```bash
+     docker volume prune
+     ```
+
+Running these commands periodically helps prevent disk space issues and ensures that the Jenkins Agent remains operational.
+
+---
+
