@@ -1398,3 +1398,274 @@ Running these commands periodically helps prevent disk space issues and ensures 
 
 ---
 
+### Step 39: Create and Connect to My-EKS-Bootstrap-Server
+
+To prepare for setting up Amazon EKS (Elastic Kubernetes Service), create an EC2 instance designated as the EKS bootstrap server.
+
+1. **Launch EC2 Instance**:
+   - **Instance Name**: `My-EKS-Bootstrap-Server`
+   - **Instance Type**: Select an appropriate type based on your workload requirements.
+   - **AMI**: Choose an Amazon Machine Image (e.g., Ubuntu or Amazon Linux) compatible with EKS setup tools.
+   - **Security Group**: Ensure the security group allows SSH (port 22) for remote access.
+   - **Key Pair**: Use or create a key pair for accessing the instance.
+
+2. **Connect to the EKS Bootstrap Server**:
+   - Use MobaXterm or an SSH client to connect to the instance.
+   - In MobaXterm, configure the session:
+      - **Host**: Public IP or DNS of `My-EKS-Bootstrap-Server`.
+      - **Username**: `ubuntu` (for Ubuntu AMI) or `ec2-user` (for Amazon Linux).
+      - Name the session as **My-EKS-Bootstrap-Server** for easy identification.
+
+The EKS Bootstrap Server is now set up and ready for further configurations for Amazon EKS setup.
+
+---
+
+### Step 40: Configure My-EKS-Bootstrap-Server
+
+1. **Update and Upgrade Packages**: After connecting to the `My-EKS-Bootstrap-Server` instance, update and upgrade system packages.
+    ```bash
+    sudo apt update
+    sudo apt upgrade -y
+    clear
+    ```
+
+2. **Set Hostname**:
+   - Open the hostname configuration file:
+       ```bash
+       sudo nano /etc/hostname
+       ```
+   - Change the hostname to:
+       ```
+       My-EKS-Bootstrap-Server
+       ```
+   - Save and exit:
+      - Press `Ctrl + X` to exit.
+      - Press `Y` to confirm.
+      - Press `Enter` to finalize.
+
+3. **Restart the Instance**: Restart the instance to apply the new hostname.
+    ```bash
+    sudo init 6
+    # or
+    sudo reboot
+    ```
+
+After restarting, reconnect to the instance. The hostname should now be updated to `My-EKS-Bootstrap-Server`.
+
+---
+
+### Step 41: Install AWS CLI on My-EKS-Bootstrap-Server
+
+To interact with AWS services from the EKS Bootstrap Server, install the AWS CLI.
+
+1. **Switch to Root User**:
+    ```bash
+    sudo su
+    ```
+
+2. **Navigate to Home Directory**:
+    ```bash
+    pwd
+    ```
+
+3. **Download AWS CLI**:
+   - Use `curl` to download the AWS CLI installer:
+       ```bash
+       curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+       ```
+
+4. **Install Unzip Utility**:
+   - If `unzip` is not already installed, install it:
+       ```bash
+       apt install unzip
+       ```
+
+5. **Extract AWS CLI Installer**:
+    ```bash
+    unzip awscliv2.zip
+    ```
+
+6. **Run AWS CLI Installer**:
+   - Install the AWS CLI by running the following command:
+       ```bash
+       sudo ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update
+       ```
+
+The AWS CLI is now installed on the `My-EKS-Bootstrap-Server` and ready for use.
+
+---
+
+### Step 42: Install Kubectl on My-EKS-Bootstrap-Server
+
+Kubectl is the command-line tool for managing Kubernetes clusters, and it’s essential for working with Amazon EKS.
+
+1. **Switch to Root User**:
+    ```bash
+    sudo su
+    ```
+
+2. **Navigate to Home Directory**:
+    ```bash
+    pwd
+    ```
+
+3. **Download Kubectl**:
+   - Use `curl` to download the specific version of `kubectl`:
+       ```bash
+       curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.30.4/2024-09-11/bin/linux/amd64/kubectl
+       ```
+
+4. **Make Kubectl Executable**:
+   - Update permissions to make `kubectl` executable:
+       ```bash
+       chmod +x ./kubectl
+       ```
+
+5. **Move Kubectl to System Path**:
+   - Move `kubectl` to `/bin` so it’s accessible from anywhere:
+       ```bash
+       mv kubectl /bin
+       ```
+
+6. **Update PATH Variable**:
+   - Ensure the `kubectl` path is correctly set:
+       ```bash
+       export PATH=$HOME/bin:$PATH
+       ```
+
+7. **Verify Kubectl Installation**:
+   - Confirm the installation and check the version:
+       ```bash
+       kubectl version --output=yaml
+       ```
+
+Kubectl is now installed and ready for managing Kubernetes clusters on the `My-EKS-Bootstrap-Server`.
+
+---
+
+### Step 43: Install eksctl on My-EKS-Bootstrap-Server
+
+Eksctl is a command-line tool for managing Amazon EKS clusters, making it easier to create and manage Kubernetes clusters on AWS.
+
+1. **Switch to Root User**:
+    ```bash
+    sudo su
+    ```
+
+2. **Navigate to Home Directory**:
+    ```bash
+    pwd
+    ```
+
+3. **Download and Extract eksctl**:
+   - Use `curl` to download the latest release of `eksctl` and extract it to the `/tmp` directory:
+       ```bash
+       curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+       ```
+
+4. **Move eksctl to System Path**:
+   - Change to the `/tmp` directory and verify `eksctl` has been downloaded:
+       ```bash
+       cd /tmp
+       ll
+       ```
+   - Move `eksctl` to `/bin` so it’s accessible from anywhere:
+       ```bash
+       sudo mv /tmp/eksctl /bin
+       ```
+
+5. **Verify eksctl Installation**:
+   - Confirm the installation and check the version:
+       ```bash
+       eksctl version
+       ```
+
+6. **Reboot the Instance**:
+   - Restart the instance to ensure all PATH settings are applied correctly:
+       ```bash
+       sudo reboot
+       ```
+
+7. **Verify Kubectl After Reboot**:
+   - Once the server reboots, verify that `kubectl` is accessible:
+       ```bash
+       kubectl version --client
+       ```
+
+Eksctl is now installed and ready for creating and managing Amazon EKS clusters on the `My-EKS-Bootstrap-Server`.
+
+---
+
+### Step 44: Assign eksctl_ROLE to My-EKS-Bootstrap-Server in AWS
+
+To grant the necessary permissions for managing EKS clusters, assign the **eksctl_ROLE** IAM role to the `My-EKS-Bootstrap-Server` instance.
+
+1. **Assign eksctl_ROLE in AWS Console**:
+   - Go to the **AWS Management Console** > **EC2 Dashboard**.
+   - Select the `My-EKS-Bootstrap-Server` instance.
+   - Under the **Actions** dropdown, select **Security** > **Modify IAM Role**.
+   - Choose the **eksctl_ROLE** IAM role from the list and click **Update IAM Role**.
+
+2. **Verify Role Assignment**:
+   - Once assigned, the `My-EKS-Bootstrap-Server` will have the permissions specified in the **eksctl_ROLE** policy, which should include permissions to create and manage EKS clusters.
+
+With **eksctl_ROLE** assigned, the EKS Bootstrap Server can now interact with AWS services required for EKS cluster management.
+
+---
+
+
+
+### Step 45: Create an EKS Cluster with 3 Nodes
+
+Use `eksctl` to create an Amazon EKS cluster with 3 nodes on the `My-EKS-Bootstrap-Server`.
+
+1. **Create EKS Cluster**:
+   - Run the following `eksctl` command to create an EKS cluster named `my-workspace3-cluster` with 3 nodes of type `t2.large` in the `us-east-1` region:
+       ```bash
+       eksctl create cluster --name my-workspace3-cluster \
+       --region us-east-1 \
+       --node-type t2.large \
+       --nodes 3
+       ```
+
+2. **Wait for Cluster Creation**:
+   - The cluster creation process may take several minutes. Eksctl will provision the EKS control plane and set up 3 worker nodes for the cluster.
+
+3. **Verify Cluster Setup**:
+   - Once the cluster is created, use `kubectl` to verify connectivity:
+       ```bash
+       kubectl get nodes
+       ```
+
+The EKS cluster named `my-workspace3-cluster` with 3 nodes is now ready for deploying applications.
+
+---
+
+### Step 46: Verify EKS Cluster Nodes and Pods
+
+After creating the EKS cluster, use the following `kubectl` commands to verify the status of nodes and pods.
+
+1. **Get Nodes**:
+   - To see the list of nodes in the EKS cluster, use:
+     ```bash
+     kubectl get nodes
+     ```
+
+2. **Get Pods**:
+   - To check the status of pods within the default namespace, you can use any of the following commands:
+     ```bash
+     kubectl get pods
+     ```
+     or
+     ```bash
+     kubectl get pod
+     ```
+     or
+     ```bash
+     kubectl get po
+     ```
+
+These commands will help verify that the nodes are active and ready, and display any running pods in the EKS cluster.
+
+---
+
