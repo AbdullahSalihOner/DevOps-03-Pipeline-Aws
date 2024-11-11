@@ -1046,3 +1046,162 @@ After logging in, you can configure SonarQube settings, create projects, and per
 
 ---
 
+### Step 33: Create SonarQube Token for Jenkins Integration
+
+To allow Jenkins to connect with SonarQube for code analysis, create a token in SonarQube.
+
+1. **Access SonarQube Security Settings**:
+    - Open a web browser and navigate to the following URL, replacing `<MAKINENIN_PUBLIC_IP_DEGERI>` with the public IP address of your SonarQube instance:
+        ```
+        http://<MAKINENIN_PUBLIC_IP_DEGERI>:9000/account/security
+        ```
+
+2. **Generate a New Token**:
+    - Under **Tokens**, create a new token:
+        - **Name**: `jenkins-sonarqube-token`
+    - After creation, you will receive a token string similar to `sqa_48cf61bc7addb34aa48ed8c04903efdbdbf98e58`.
+    - **Copy this token** and keep it secure; you will need it to configure Jenkins.
+
+3. **Add Token to Jenkins**:
+    - In Jenkins, go to **Dashboard** > **Manage Jenkins** > **Manage Credentials**.
+    - Choose the appropriate credentials domain (usually **Global**).
+    - Add a new **Secret text** credential:
+        - **Secret**: Paste the generated SonarQube token (`sqa_48cf61bc7addb34aa48ed8c04903efdbdbf98e58`).
+        - **ID**: Optionally, give an ID such as `sonarqube-token`.
+        - **Description**: Enter a description for easy reference.
+
+With this token, Jenkins can securely connect to SonarQube to run code quality analysis during your pipelines.
+
+---
+
+### Step 34: Configure SonarQube Token in Jenkins and Install Plugins
+
+To integrate SonarQube with Jenkins, save the SonarQube token in Jenkins and install the necessary plugins.
+
+1. **Save SonarQube Token in Jenkins**:
+   - In Jenkins, navigate to **Dashboard** > **Manage Jenkins** > **Manage Credentials**.
+   - Choose the appropriate credentials domain (usually **Global**).
+   - Click on **Add Credentials** and configure as follows:
+      - **Kind**: Secret text
+      - **Secret**: Paste the SonarQube token (`sqa_48cf61bc7addb34aa48ed8c04903efdbdbf98e58`)
+      - **ID**: Enter an identifier such as `sonarqube-token`
+      - **Description**: (Optional) Enter a description like "SonarQube Token for Jenkins Integration"
+
+2. **Install Required Plugins**:
+   - In Jenkins, go to **Dashboard** > **Manage Jenkins** > **Manage Plugins**.
+   - Under the **Available** tab, search for the following plugins and install them:
+      - **SonarQube Scanner**: Required for Jenkins to run SonarQube analysis.
+      - **Pipeline**: Needed if not already installed for managing pipeline jobs.
+   - Once plugins are selected, click **Install without restart** to install them immediately.
+
+3. **Configure SonarQube Server in Jenkins**:
+   - After plugins are installed, go to **Manage Jenkins** > **Configure System**.
+   - Scroll down to the **SonarQube servers** section.
+   - Click **Add SonarQube** and enter the following details:
+      - **Name**: A descriptive name like `SonarQube-Server`.
+      - **Server URL**: Use the private IP and port of the SonarQube server, for example:
+        ```
+        http://172.31.6.227:9000
+        ```
+      - **Server authentication token**: Select the token credential (`sonarqube-token`) saved earlier.
+
+4. **Save Configuration**:
+   - After completing the setup, click **Save** to store the SonarQube server configuration.
+
+Jenkins is now configured to communicate with SonarQube using the token, enabling code quality analysis as part of your pipeline.
+
+---
+
+### Important: Update Jenkins System Configuration After Elastic IP Change
+
+If the Elastic IP of the Jenkins Master or any integrated services (such as SonarQube) changes, remember to update the IP addresses in Jenkins system settings.
+
+Failing to update the IP addresses can result in slow performance or connectivity issues.
+
+1. **Update Jenkins System IP**:
+   - Go to **Manage Jenkins** > **Configure System**.
+   - Update any fields referencing the previous IP address with the new Elastic IP.
+   - Specifically check the **Jenkins URL** and **SonarQube server** settings.
+
+2. **Save Configuration**:
+   - After updating the IP address, click **Save** to apply the changes.
+
+This ensures that Jenkins and its integrations remain responsive and perform optimally.
+
+---
+
+### Step 35: Updated Jenkins Pipeline with SonarQube Analysis Stage
+
+Below is the updated Jenkinsfile with an additional stage for SonarQube analysis, enabling code quality checks as part of the CI/CD pipeline.
+
+```groovy
+pipeline {
+    agent any
+    tools {
+        jdk 'JDK21'
+        maven 'Maven3'
+    }
+    stages {
+        stage('Cleanup Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+        stage('Checkout from SCM') {
+            steps {
+                git branch: 'master', credentialsId: 'github', url: 'https://github.com/AbdullahSalihOner/DevOps-03-Pipeline-Aws'
+            }
+        }
+        stage('Build Maven') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+        stage('Test Application') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+        stage("SonarQube Analysis") {
+           steps {
+	           script {
+		           withSonarQubeEnv(credentialsId: 'jenkins-sonarqube-token') {
+                      sh "mvn sonar:sonar"
+		           }
+	           }
+           }
+       }
+
+        /*
+        stage('Docker Image') {
+           steps {
+               bat 'docker build -t asoner01/my-application:latest .'
+           }
+        }
+
+        stage('Docker Image to DockerHub') {
+            steps {
+                script{
+                    withCredentials([string(credentialsId: 'dockerhub', variable: 'dockerhub')]) {
+                          bat 'echo docker login -u asoner01 -p ${dockerhub}'
+                          bat 'docker image push asoner01/my-application:latest'
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                kubernetesDeploy(configs: 'deployment-service.yml', kubeconfigId: 'kubernetes')
+            }
+        }
+
+       stage('Docker Image to Clean') {
+           steps {
+                bat 'docker image prune -f'
+           }
+       }
+        */
+    }
+}
+```

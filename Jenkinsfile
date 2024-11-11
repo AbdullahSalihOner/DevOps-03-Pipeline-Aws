@@ -1,36 +1,51 @@
-
 pipeline {
+    // agent {label 'My-Jenkins-Agent'}
     agent any
-
-    tools{
+    tools {
         jdk 'JDK21'
         maven 'Maven3'
     }
-
     stages {
-
-
+        stage('Cleanup Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+        stage('Checkout from SCM') {
+            steps {
+                //   checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/AbdullahSalihOner/DevOps-03-Pipeline-Aws']])
+                git branch: 'master', credentialsId: 'github', url: 'https://github.com/AbdullahSalihOner/DevOps-03-Pipeline-Aws'
+            }
+        }
         stage('Build Maven') {
             steps {
-                checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/AbdullahSalihOner/DevOps-03-Pipeline-aws']])
-
-                // sh 'mvn clean install'
-                  bat 'mvn clean install'
+                //  sh 'mvn clean install'
+                //  bat 'mvn clean install'
+                sh 'mvn clean package'
+                //  bat 'mvn clean package'
             }
         }
-
-
-        stage('Unit Test') {
+        stage('Test Application') {
             steps {
-                // sh 'mvn test'
-                  bat 'mvn test'
-
-                // sh 'echo Unit Test'
-                // bat 'echo Unit Test'
+                sh 'mvn test'
+                //  bat 'mvn test'
             }
         }
 
 
+       stage("SonarQube Analysis"){
+           steps {
+	           script {
+		           withSonarQubeEnv(credentialsId: 'jenkins-sonarqube-token') {
+                      sh "mvn sonar:sonar"
+		           }
+	           }
+           }
+       }
+
+
+
+        /*
         stage('Docker Image') {
            steps {
                //  sh 'docker build  -t asoner01/my-application:latest  .'
@@ -74,7 +89,6 @@ pipeline {
                 bat 'docker image prune -f'
            }
        }
-
-
+*/
     }
 }
