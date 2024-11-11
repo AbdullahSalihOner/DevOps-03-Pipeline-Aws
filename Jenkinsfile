@@ -75,7 +75,7 @@ pipeline {
         stage("Trivy Scan") {
             steps {
                 script {
-                    sh ('docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image asoner01/DevOps-03-Pipeline-Aws:latest --no-progress --scanners vuln  --exit-code 0 --severity HIGH,CRITICAL --format table')
+                    sh ('docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image asoner01/devops-03-pipeline-aws:latest --no-progress --scanners vuln  --exit-code 0 --severity HIGH,CRITICAL --format table')
                 }
             }
         }
