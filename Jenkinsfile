@@ -4,7 +4,7 @@ pipeline {
     }
     // agent any
     environment {
-        APP_NAME = "DevOps-03-Pipeline-Aws"
+        APP_NAME = "devops-03-pipeline-aws"
         RELEASE = "1.0"
         DOCKER_USER = "asoner01"
         DOCKER_LOGIN = "dockerhub"
