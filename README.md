@@ -9,18 +9,18 @@ This project demonstrates a CI/CD pipeline using DevOps practices and AWS Cloud 
 - [Project Overview](#project-overview)
 - [Technologies Used](#technologies-used)
 - [Pipeline Steps](#pipeline-steps)
-- [Getting Started](#getting-started)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Troubleshooting](#troubleshooting)
-- [References](#references)
-
 ---
 
 ## Project Overview
 
 This project aims to build a complete CI/CD pipeline leveraging various DevOps tools and AWS Cloud infrastructure to automate software development and deployment processes.
 
+![CI/CD Workflow Diagram](images/3.png)
+
+
+![Updated CI/CD Workflow Diagram with ArgoCD and Trivy](images/10.png)
+
+![Updated CI/CD Workflow Diagram with ArgoCD and Trivy](images/11.png)
 ## Technologies Used
 
 - **Jenkins**: For continuous integration and automation.
@@ -423,7 +423,7 @@ To enable secure SSH communication between the Jenkins Master and Jenkins Agent,
 After restarting, the SSH key authentication setup between Jenkins Master and Agent is complete.
 
 ---
-
+![SSH Key Setup](images/1.png)
 ### Step 14: Retrieve Jenkins Initial Admin Password and Add Agent Node
 
 1. **Retrieve Jenkins Initial Admin Password**:
@@ -495,6 +495,8 @@ With the Jenkins Master and Agent set up, the next step is to create a Jenkins p
 The initial Jenkins pipeline is now set up and ready for further configuration and stages as needed.
 
 ---
+
+![Jenkins Pipeline](images/2.png)
 
 ### Step 17: Create and Add GitHub Token to Jenkins
 
@@ -955,6 +957,8 @@ SonarQube is now configured to connect to the PostgreSQL database using the `son
 
 ---
 
+![SonarQube Database Configuration](images/4.png)
+
 ### Step 30: Create SonarQube Service
 
 To manage SonarQube as a systemd service, create a service file and configure it to start SonarQube.
@@ -1045,6 +1049,7 @@ With these settings, SonarQube will start automatically whenever the system boot
 After logging in, you can configure SonarQube settings, create projects, and perform code quality analysis.
 
 ---
+![SonarQube Project Creation](images/5_sonarqube.png)
 
 ### Step 33: Create SonarQube Token for Jenkins Integration
 
@@ -1205,6 +1210,12 @@ pipeline {
     }
 }
 ```
+
+![SonarQube CI/CD Integration Diagram](images/6_sonarqube_cicd.png)
+
+
+![Jenkins Pipeline Complete](images/8_jenkins.png)
+
 ### Step 36: Create SonarQube Webhook for Jenkins Integration
 
 To allow SonarQube to send notifications to Jenkins upon analysis completion, create a webhook in SonarQube.
@@ -1254,6 +1265,8 @@ To allow Jenkins to push Docker images to DockerHub securely, create a DockerHub
 With this token saved in Jenkins, the pipeline can securely authenticate with DockerHub to push images.
 
 ---
+
+![Jenkins Pipeline Trivy Scan](images/7_trivy.png)
 
 ### Jenkins Pipeline Script (Jenkinsfile) with DockerHub and Trivy Integration
 
@@ -1834,6 +1847,7 @@ These steps allow you to manage the Kubernetes cluster directly from ArgoCD, int
 
 ---
 
+![ArgoCD Application Status](images/9_argo.png)
 
 ### Step 51: Clean Up Docker on Agent Machine and Delete EKS Cluster
 
