@@ -1795,3 +1795,108 @@ ArgoCD is now accessible externally, and the admin password has been updated for
 
 ---
 
+### Step 50: Use ArgoCD from the Terminal and Add Kubernetes Cluster
+
+To interact with ArgoCD via the terminal, login to the ArgoCD server and register your Kubernetes cluster.
+
+1. **Login to ArgoCD via CLI**:
+   - Use the ArgoCD CLI to login to the ArgoCD server. Replace the external LoadBalancer address with your own:
+     ```bash
+     argocd login a5b3d196d6343444dbd692184429ca6b-117814533.us-east-1.elb.amazonaws.com --username admin
+     ```
+   - Enter the password when prompted (use the admin password retrieved earlier).
+
+2. **List Connected Clusters**:
+   - View the list of clusters currently connected to ArgoCD:
+     ```bash
+     argocd cluster list
+     ```
+
+3. **Retrieve Current Kubernetes Cluster Name**:
+   - To get the name of the Kubernetes cluster currently in use:
+     ```bash
+     kubectl config get-contexts
+     ```
+
+4. **Add Kubernetes Cluster to ArgoCD**:
+   - Register the Kubernetes cluster with ArgoCD using the cluster name retrieved in the previous step. Replace the name if necessary:
+     ```bash
+     argocd cluster add i-019044c0a004f6c9f@my-workspace3-cluster.us-east-1.eksctl.io --name my-workspace3-cluster
+     ```
+
+5. **Verify Services**:
+   - Confirm that ArgoCD is connected and view available services:
+     ```bash
+     kubectl get svc
+     ```
+
+These steps allow you to manage the Kubernetes cluster directly from ArgoCD, integrating GitOps workflows for streamlined application deployment.
+
+---
+
+
+### Step 51: Clean Up Docker on Agent Machine and Delete EKS Cluster
+
+To maintain disk space on the Jenkins Agent and remove unused resources, regularly perform Docker cleanup. Additionally, delete the EKS cluster when it's no longer needed.
+
+#### Docker Cleanup on Jenkins Agent
+
+As Docker images, containers, and volumes accumulate on the Agent machine, they consume disk space. Use the following commands to free up space:
+
+1. **Remove Docker Images**:
+   - Delete images related to the project `devops-003-pipeline-aws`:
+     ```bash
+     docker rmi $(docker images --format '{{.Repository}}:{{.Tag}}' | grep 'devops-003-pipeline-aws')
+     ```
+
+2. **Remove All Docker Containers**:
+   - Forcefully remove all stopped containers:
+     ```bash
+     docker container rm -f $(docker container ls -aq)
+     ```
+
+3. **Prune Docker Volumes**:
+   - Remove all unused Docker volumes to free up space:
+     ```bash
+     docker volume prune
+     ```
+
+#### Deleting EKS Cluster and Associated Resources
+
+If the EKS cluster is no longer required, follow these steps to delete it and all related services.
+
+1. **Check eksctl Version**:
+   - Ensure `eksctl` is installed and up to date:
+     ```bash
+     eksctl version
+     ```
+
+2. **List All Running Services**:
+   - Before deleting, view all services running across namespaces:
+     ```bash
+     kubectl get svc --all-namespaces
+     ```
+
+3. **View Cluster Details**:
+   - To confirm cluster details, use:
+     ```bash
+     kubectl config view
+     ```
+
+4. **Set AWS Region**:
+   - Set the AWS region if necessary:
+     ```bash
+     export AWS_DEFAULT_REGION=us-east-1
+     ```
+
+5. **Delete the EKS Cluster**:
+   - Use `eksctl` to delete the entire cluster by name. This removes nodes, services, and all associated resources:
+     ```bash
+     eksctl delete cluster --name my-workspace3-cluster
+     ```
+
+These steps help manage disk space on the Agent machine and decommission the EKS cluster when it is no longer in use.
+
+---
+
+
