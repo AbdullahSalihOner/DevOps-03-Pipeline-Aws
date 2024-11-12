@@ -1670,4 +1670,128 @@ These commands will help verify that the nodes are active and ready, and display
 ---
 
 
-İs it working?
+### Step 47: Install ArgoCD on EKS Cluster
+
+ArgoCD is a declarative GitOps continuous delivery tool for Kubernetes. Follow these steps to install ArgoCD on your EKS cluster.
+
+1. **Create ArgoCD Namespace**:
+   - To isolate ArgoCD resources, create a dedicated namespace:
+     ```bash
+     kubectl create namespace argocd
+     ```
+
+2. **Install ArgoCD**:
+   - Apply the ArgoCD installation manifest to install ArgoCD components in the `argocd` namespace:
+     ```bash
+     kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+     ```
+
+3. **Verify ArgoCD Installation**:
+   - Check the status of ArgoCD pods to confirm they are running:
+     ```bash
+     kubectl get pods -n argocd
+     ```
+
+ArgoCD is now installed in the `argocd` namespace on the EKS cluster. You can use it to manage application deployments in a GitOps workflow.
+
+---
+
+### Step 48: Install ArgoCD CLI on My-EKS-Bootstrap-Server
+
+The ArgoCD CLI tool allows you to interact with the ArgoCD server directly from the command line, facilitating application management on Kubernetes.
+
+1. **Switch to Root User**:
+    ```bash
+    sudo su
+    ```
+
+2. **Navigate to Home Directory**:
+    ```bash
+    pwd
+    ```
+
+3. **Retrieve the Latest ArgoCD Version**:
+   - You can retrieve the latest ArgoCD version and install it with the following commands:
+       ```bash
+       curl -L -s https://raw.githubusercontent.com/argoproj/argo-cd/stable/VERSION
+       VERSION=$(curl -L -s https://raw.githubusercontent.com/argoproj/argo-cd/stable/VERSION)
+       curl --silent --location -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/download/v$VERSION/argocd-linux-amd64
+       ```
+
+4. **Alternatively, Install a Specific Version**:
+   - If you prefer to install a specific version, use the following command (replace with the desired version):
+       ```bash
+       curl --silent --location -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/download/v2.12.3/argocd-linux-amd64
+       ```
+
+5. **Make the ArgoCD CLI Executable**:
+   - Update permissions to make the `argocd` CLI executable:
+       ```bash
+       chmod +x /usr/local/bin/argocd
+       ```
+
+6. **Verify Installation**:
+   - Confirm the installation by checking the version:
+       ```bash
+       argocd version
+       ```
+
+The ArgoCD CLI is now installed on the `My-EKS-Bootstrap-Server`, ready to manage applications in ArgoCD.
+
+---
+
+### Step 49: Expose ArgoCD to External Access and Retrieve Admin Password
+
+To access ArgoCD from an external IP, expose the ArgoCD server using a LoadBalancer service type and retrieve the admin password for login.
+
+1. **Switch to Normal User Mode**:
+   - If currently in root mode, exit back to the normal user:
+       ```bash
+       exit
+       ```
+   - Alternatively, use `Ctrl + C`.
+
+2. **Expose ArgoCD Server**:
+   - Change the ArgoCD server service type to `LoadBalancer` to make it accessible from outside the cluster:
+       ```bash
+       kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
+       ```
+
+3. **Get External Address**:
+   - Retrieve the external address created by the LoadBalancer:
+       ```bash
+       kubectl get svc -n argocd
+       ```
+   - The external address should appear under the `EXTERNAL-IP` or `ADDRESS` column, similar to:
+     ```
+     a5b3d196d6343444dbd692184429ca6b-117814533.us-east-1.elb.amazonaws.com
+     ```
+
+4. **Retrieve ArgoCD Admin Password**:
+   - Use the following command to get the initial admin password for ArgoCD:
+       ```bash
+       kubectl get secret argocd-initial-admin-secret -n argocd -o yaml
+       ```
+   - Copy the encoded password and decode it using:
+       ```bash
+       echo dEJXSzJuVktYY2IxVVpaYw== | base64 --decode
+       ```
+   - This should output the admin password, for example:
+     ```
+     tBWK2nVKXcb1UZZc
+     ```
+
+5. **Login to ArgoCD and Update Password**:
+   - Open a web browser and go to the external ArgoCD address:
+     ```
+     http://a4acf523475ea4b89ad2c07714c0e6ff-1045934813.us-east-1.elb.amazonaws.com
+     ```
+   - Login with:
+      - **Username**: `admin`
+      - **Password**: `tBWK2nVKXcb1UZZc` (or the decoded password you retrieved)
+   - Once logged in, navigate to the **User Info** menu to update the default password.
+
+ArgoCD is now accessible externally, and the admin password has been updated for security.
+
+---
+
